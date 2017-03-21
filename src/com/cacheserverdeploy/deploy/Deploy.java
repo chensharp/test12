@@ -24,8 +24,12 @@ import com.chensharp.tools.link;
 
 public class Deploy
 {
-    public static DataOpt _dataopt = new DataOpt(); 
+	final static int MAX_NODE_LENGTH=1000; //最大节点数目 
+	public static int max_node_id=0;
 	
+    public static DataOpt _dataopt = new DataOpt(); 
+	public static byte [][] dag_cost = new byte [MAX_NODE_LENGTH][MAX_NODE_LENGTH];//
+	public static byte [][] dag_bw = new byte [MAX_NODE_LENGTH][MAX_NODE_LENGTH];//
     /*初始化数据
      * 
      */
@@ -78,6 +82,71 @@ public class Deploy
 
 	}
 	/**
+	 * 初始化DAG
+	 */
+	private static void initDAG() {
+		//init 0 dag
+		for (int i = 0; i < MAX_NODE_LENGTH; i++) {
+			for (int j = 0; j < MAX_NODE_LENGTH; j++) {
+				dag_cost[i][j]=-1;
+				dag_bw[i][j]=-1;
+			}
+		}
+		
+		//initdagcost,initdagbw
+		for (int i = 0; i < _dataopt.getLink_num(); i++) {
+			dag_cost[_dataopt.links.get(i).getStart_node()][_dataopt.links.get(i).getEnd_node()]= 
+					(byte) _dataopt.links.get(i).getRent_cost();
+			dag_cost[_dataopt.links.get(i).getEnd_node()][_dataopt.links.get(i).getStart_node()]= 
+					(byte) _dataopt.links.get(i).getRent_cost();
+			
+			dag_bw[_dataopt.links.get(i).getStart_node()][_dataopt.links.get(i).getEnd_node()]= 
+					(byte) _dataopt.links.get(i).getBandwidth();
+			dag_bw[_dataopt.links.get(i).getEnd_node()][_dataopt.links.get(i).getStart_node()]= 
+					(byte) _dataopt.links.get(i).getBandwidth();
+		}
+		
+		//求最大的nodeid
+	    max_node_id=0;
+		int end,maxend=0;
+		int start, maxstart=0;
+		for (int i = 0; i < _dataopt.getLink_num(); i++) {
+			end = _dataopt.links.get(i).getEnd_node();
+			start = _dataopt.links.get(i).getStart_node();
+			if (start>maxstart) {
+				maxstart=start;
+			}
+			if (end>maxend) {
+				maxend=end;
+			}
+		}
+		if (maxstart>maxend) {
+			max_node_id = maxstart;
+		}else {
+			max_node_id = maxend;
+		}
+	/*	
+		//System.out.println(max_node_id);
+		//print dag
+		for (int i = 0; i <= max_node_id; i++) {
+			for (int j = 0; j <= max_node_id; j++) {
+				System.out.print(" "+dag_cost[i][j]+" ");
+				
+			}
+			System.out.print("\n");
+		}
+		System.out.println("*******************************************************************************************");
+		// print dag
+		for (int i = 0; i <= max_node_id; i++) {
+			for (int j = 0; j <= max_node_id; j++) {
+				System.out.print(" " + dag_bw[i][j] + " ");
+
+			}
+			System.out.print("\n");
+		}
+*/
+	}
+	/**
      * 你需要完成的入口
      * <功能详细描述>
      * @param graphContent 用例信息文件
@@ -89,7 +158,8 @@ public class Deploy
     	initData(graphContent);
     	
     	/**do your work here**/
-    	//_dataopt.print();
+    	_dataopt.print();
+    	initDAG();
     	//GeneticAlgorithmTest test = new GeneticAlgorithmTest();  
         //test.caculte();  
     	
