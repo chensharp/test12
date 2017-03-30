@@ -1,9 +1,11 @@
 package com.cacheserverdeploy.deploy;
 
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
+
 import com.chensharp.genetic.GeneticAlgorithmTest;
-import com.chensharp.tools.DataOpt;
-import com.chensharp.tools.consumeNode;
-import com.chensharp.tools.link;
+import com.chensharp.tools.*;
 
 /*
 输入文件示例（参照第一节中的用例）：
@@ -25,11 +27,17 @@ import com.chensharp.tools.link;
 public class Deploy
 {
 	final static int MAX_NODE_LENGTH=1000; //最大节点数目 
-	public static int max_node_id=0;
+	final static byte INF_INT= -1; //无穷大 
+	public static int max_node_num=0;
 	
-    public static DataOpt _dataopt = new DataOpt(); 
-	public static byte [][] dag_cost = new byte [MAX_NODE_LENGTH][MAX_NODE_LENGTH];//
-	public static byte [][] dag_bw = new byte [MAX_NODE_LENGTH][MAX_NODE_LENGTH];//
+    public static DataOpt _dataopt = new DataOpt(); //原始数据
+	public static byte [][] dag_cost = new byte [MAX_NODE_LENGTH][MAX_NODE_LENGTH];//网络花费
+	public static byte [][] dag_bw = new byte [MAX_NODE_LENGTH][MAX_NODE_LENGTH];//网络带宽
+	
+	public static SolutionList _solutionlist = new SolutionList();//解的集合
+	
+	
+	
     /*初始化数据
      * 
      */
@@ -88,8 +96,8 @@ public class Deploy
 		//init 0 dag
 		for (int i = 0; i < MAX_NODE_LENGTH; i++) {
 			for (int j = 0; j < MAX_NODE_LENGTH; j++) {
-				dag_cost[i][j]=-1;
-				dag_bw[i][j]=-1;
+				dag_cost[i][j]=INF_INT;
+				dag_bw[i][j]=INF_INT;
 			}
 		}
 		
@@ -106,8 +114,8 @@ public class Deploy
 					(byte) _dataopt.links.get(i).getBandwidth();
 		}
 		
-		//求最大的nodeid
-	    max_node_id=0;
+		//求最大的node数目
+	    max_node_num=0;
 		int end,maxend=0;
 		int start, maxstart=0;
 		for (int i = 0; i < _dataopt.getLink_num(); i++) {
@@ -121,9 +129,9 @@ public class Deploy
 			}
 		}
 		if (maxstart>maxend) {
-			max_node_id = maxstart;
+			max_node_num = maxstart;
 		}else {
-			max_node_id = maxend;
+			max_node_num = maxend;
 		}
 	/*	
 		//System.out.println(max_node_id);
@@ -163,9 +171,33 @@ public class Deploy
     	//GeneticAlgorithmTest test = new GeneticAlgorithmTest();  
         //test.caculte();  
     	
+    	searchDeployed();
     	
+		return new String[] { "17", "\r\n", "0 8 0 20" };
+	}
+    
+    /**
+     * 搜索最优解的过程
+     */
+    public static void searchDeployed() {
+		/*
+		 *首先假设所需视频流量的节点数目 n = 1 或2，如果不能找到可行解，便继续增加数目；
+		 *从带有消费节点的节点开始，进行生长，直至获得一个解，保存此状态的带宽占用和费用
+		 *
+		 *单个节点生长过程：
+		 *一条链路上流量的大小由该链路上最小的带宽决定。
+		 *
+		 *
+		 *一、顺序解法： 限定server的数目， 问题分解为已知server数目（1，2，3，n）的求解过程，从高到低不断消减数目，直至无解，
+		 *初始等于消费节点的数目，每个迭代减少一个步长，输出结果，
+		 *    1，求解已知server数目为n时（n<=m  comsumer num ）,一个可行解，
+		 *      1.1：已知有m个consumer ，分解为单个consumer到server节点的生长，？
+		 *
+		 *
+		 *
+		 *
+		 */
     	
-        return new String[]{"17","\r\n","0 8 0 20"};
-    }
+	}
 
 }
