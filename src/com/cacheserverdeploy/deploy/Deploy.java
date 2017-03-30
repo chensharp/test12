@@ -133,6 +133,9 @@ public class Deploy
 		}else {
 			max_node_num = maxend;
 		}
+		
+		System.out.println("maxnum = "+max_node_num);
+		
 	/*	
 		//System.out.println(max_node_id);
 		//print dag
@@ -154,6 +157,163 @@ public class Deploy
 		}
 */
 	}
+	
+
+    /**
+     * chart2 - 引入bandwidth的最短路径
+     * @param weight
+     * @param bandwidth
+     * @param start
+     * @return  返回start点到所有点的最短路径的string[],其中【1】是start到1的路径，用-隔开。  
+     */
+	public static String[] Dijsktra12(byte[][] weight, byte[][] bandwidth, int start, int _maxnode) {
+		// 接受一个有向图的权重矩阵，和一个起点编号start（从0编号，顶点存在数组中）
+		int n = _maxnode; // 顶点个数
+		//int[] shortPath = new int[n]; // 存放从start到其他各点的最短路径长度
+
+		String[] path = new String[n]; // 存放从start到其他各点的最短路径的字符串表示
+		for (int i = 0; i < n; i++) {
+			path[i] = new String(start + "-" + i);
+		}
+		int[] visited = new int[n]; //标记当前该顶点的最短路径是否已经求出,1表示已求出
+
+		// 初始化，第一个顶点求出
+		//shortPath[start] = 0;
+		visited[start] = 1;
+
+		// 要加入n-1个顶点
+		for (int count = 1; count <= n-1; count++) {
+			int k = -1; // 选出一个距离初始顶点start最近的未标记顶点
+			int dmin = Integer.MAX_VALUE;//寻找最小的节点i
+			for (int i = 0; i < n; i++) {
+				if (visited[i] == 0 && weight[start][i] < dmin ) {//&& bandwidth[start][i] > 0
+					dmin = weight[start][i];
+					k = i;
+				}
+			}
+			//System.out.println("k=" + k);
+
+			// 将新选出的顶点标记为已求出最短路径，且到start的最短路径就是dmin
+			//shortPath[k] = dmin;
+			visited[k] = 1;
+
+			// 以k为中间点，修正从start到未访问各点的距离
+			for (int i = 0; i < n; i++) {
+				// System.out.println("k="+k);
+				if (visited[i] == 0 && weight[start][k] + weight[k][i] < weight[start][i]) {
+					weight[start][i] = (byte) (weight[start][k] + weight[k][i]);
+					path[i] = path[k] + "-" + i;
+				}
+			}
+		}
+		return path;
+	}
+	
+	
+    /**
+     * 
+     * @param weight
+     * @param start
+     * @return  返回start点到所有点的最短路径的string[],其中【1】是start到1的路径，用-隔开。  
+     */
+	public static String[] Dijsktra1(byte[][] weight, int start, int _maxnode) {
+		// 接受一个有向图的权重矩阵，和一个起点编号start（从0编号，顶点存在数组中）
+		// 返回一个int[] 数组，表示从start到它的最短路径长度
+		int n = _maxnode; // 顶点个数
+		int[] shortPath = new int[n]; // 存放从start到其他各点的最短路径
+
+		String[] path = new String[n]; // 存放从start到其他各点的最短路径的字符串表示
+		for (int i = 0; i < n; i++) {
+			path[i] = new String(start + "-" + i);
+		}
+		int[] visited = new int[n]; //标记当前该顶点的最短路径是否已经求出,1表示已求出
+
+		// 初始化，第一个顶点求出
+		shortPath[start] = 0;
+		visited[start] = 1;
+
+		// 要加入n-1个顶点
+		for (int count = 1; count <= n-1; count++) {
+			int k = -1; // 选出一个距离初始顶点start最近的未标记顶点
+			int dmin = Integer.MAX_VALUE;//寻找最小的节点i
+			for (int i = 0; i < n; i++) {
+				if (visited[i] == 0 && weight[start][i] < dmin) {
+					dmin = weight[start][i];
+					k = i;
+				}
+			}
+			//System.out.println("k=" + k);
+
+			// 将新选出的顶点标记为已求出最短路径，且到start的最短路径就是dmin
+			shortPath[k] = dmin;
+			visited[k] = 1;
+
+			// 以k为中间点，修正从start到未访问各点的距离
+			for (int i = 0; i < n; i++) {
+				// System.out.println("k="+k);
+				if (visited[i] == 0 && weight[start][k] + weight[k][i] < weight[start][i]) {
+					weight[start][i] = (byte) (weight[start][k] + weight[k][i]);
+					path[i] = path[k] + "-" + i;
+				}
+			}
+		}
+		return path;
+	}
+	/**
+	 * 把Dijsktra1函数的返回值做处理，转为int[]
+	 * @param _s
+	 * @return
+	 */
+	public static int[] converPathtoInt(String _s) {
+		String[] strings = _s.split("-");
+		int[] returnss = new int[strings.length];
+		for (int i = 0; i < strings.length; i++) {
+			returnss[i] = Integer.parseInt(strings[i]);
+		}
+		return returnss;
+	}
+	
+
+	/**
+	 * 获取节点信息（出度，带宽信息，）
+	 */
+	private static void GetNodeInfo() {
+		//计算出度和带宽
+		int sumbw = 0;
+		int degree = 0;
+		for (int i = 0; i < max_node_num; i++) {
+			sumbw = 0;
+			degree = 0;
+			for (int j = 0; j < max_node_num; j++) {
+				if (dag_cost[i][j]!=INF_INT) {
+					sumbw += dag_bw[i][j];
+					degree ++;
+				}
+			}
+			System.out.println(i+" node: sumbw= "+sumbw+" degree= "+degree );
+		}
+		
+		String[] result = Dijsktra1(dag_cost, 0, max_node_num);
+
+		for (int i = 0; i < max_node_num; i++){
+			System.out.println("从" + 0 + "出发到" + i + "的最短路径为：" + result[i]);
+		/*	int[] temp = converPathtoInt(result[i]);
+			for (int j = 0; j < temp.length; j++) {
+				System.out.print(" "+temp[j]);
+			}
+			System.out.print("\n");*/
+		}
+	
+	}
+	
+	
+	private void GetLinks( ) {
+		//
+	}
+	
+	
+	
+	
 	/**
      * 你需要完成的入口
      * <功能详细描述>
@@ -170,8 +330,9 @@ public class Deploy
     	initDAG();
     	//GeneticAlgorithmTest test = new GeneticAlgorithmTest();  
         //test.caculte();  
+    	GetNodeInfo();
+    	//searchDeployed();
     	
-    	searchDeployed();
     	
 		return new String[] { "17", "\r\n", "0 8 0 20" };
 	}
