@@ -25,10 +25,12 @@ public class Main
       //  String graphFilePath = args[0];
       //  String resultFilePath = args[1];
         //读取的文件地址 
-    	//String graphFilePath="C:\\Users\\chen\\Documents\\GitHub\\test1\\case_example\\case0.txt";
-        //String resultFilePath="C:\\Users\\chen\\Documents\\GitHub\\test1\\case_example\\result.txt";
-    	String graphFilePath="F:\\javaworkspace\\test12\\case_example\\case0.txt";
-        String resultFilePath="F:\\javaworkspace\\test12\\case_example\\result.txt";
+    	String graphFilePath="C:\\Users\\chen\\workspace\\test12\\case_example\\case0.txt";
+        String resultFilePath="C:\\Users\\chen\\workspace\\test12\\case_example\\result.txt";
+    	//String graphFilePath="F:\\javaworkspace\\test12\\case_example\\case0.txt";
+        //String resultFilePath="F:\\javaworkspace\\test12\\case_example\\result.txt";
+        
+        //C:\Users\chen\workspace\test12\src
         
         LogUtil.printLog("Begin");
 

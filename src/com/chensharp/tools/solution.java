@@ -3,7 +3,7 @@ package com.chensharp.tools;
 import java.util.ArrayList;
 
 /**
- * 一个解
+ * 一个解，使用字符串表示一个路径：用 - 分割，2-3-4-5-6-7-8，首尾为起始点和终点。
  * @author chen
  *
  */
