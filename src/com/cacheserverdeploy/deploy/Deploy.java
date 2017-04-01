@@ -1,6 +1,7 @@
 package com.cacheserverdeploy.deploy;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -122,7 +123,6 @@ public class Deploy
 		dag_cost = new int [max_node_num][max_node_num];//网络花费
 		dag_bw = new int [max_node_num][max_node_num];//网络带宽
 		
-		
 		//init 0 dag
 		for (int i = 0; i < max_node_num; i++) {
 			for (int j = 0; j < max_node_num; j++) {
@@ -168,58 +168,6 @@ public class Deploy
 		}
 	}
 	
-	
-	
-
-    /**
-     * chart2 - 引入bandwidth的最短路径
-     * @param weight
-     * @param bandwidth
-     * @param start
-     * @return  返回start点到所有点的最短路径的string[],其中【1】是start到1的路径，用-隔开。  
-     */
-	public static String[] Dijsktra12(int[][] weight, int[][] bandwidth, int start, int _maxnode) {
-		// 接受一个有向图的权重矩阵，和一个起点编号start（从0编号，顶点存在数组中）
-		int n = _maxnode; // 顶点个数
-		//int[] shortPath = new int[n]; // 存放从start到其他各点的最短路径长度
-
-		String[] path = new String[n]; // 存放从start到其他各点的最短路径的字符串表示
-		for (int i = 0; i < n; i++) {
-			path[i] = new String(start + "-" + i);
-		}
-		int[] visited = new int[n]; //标记当前该顶点的最短路径是否已经求出,1表示已求出
-
-		// 初始化，第一个顶点求出
-		//shortPath[start] = 0;
-		visited[start] = 1;
-
-		// 要加入n-1个顶点
-		for (int count = 1; count <= n-1; count++) {
-			int k = -1; // 选出一个距离初始顶点start最近的未标记顶点
-			int dmin = Integer.MAX_VALUE;//寻找最小的节点i
-			for (int i = 0; i < n; i++) {
-				if (visited[i] == 0 && weight[start][i] < dmin ) {//&& bandwidth[start][i] > 0
-					dmin = weight[start][i];
-					k = i;
-				}
-			}
-			//System.out.println("k=" + k);
-
-			// 将新选出的顶点标记为已求出最短路径，且到start的最短路径就是dmin
-			//shortPath[k] = dmin;
-			visited[k] = 1;
-
-			// 以k为中间点，修正从start到未访问各点的距离
-			for (int i = 0; i < n; i++) {
-				// System.out.println("k="+k);
-				if (visited[i] == 0 && weight[start][k] + weight[k][i] < weight[start][i]) {
-					weight[start][i] = (weight[start][k] + weight[k][i]);
-					path[i] = path[k] + "-" + i;
-				}
-			}
-		}
-		return path;
-	}
 	
 	
     /**
@@ -324,16 +272,24 @@ public class Deploy
 			System.out.println(i+" node: sumbwOut= "+sumbwOut+" degreeOut= "+degreeOut+ "sumbwIn= "+sumbwIn+" degreeIn= "+degreeIn );
 		}
 		
-		String[] result = Dijsktra1(dag_cost, 4);
+		
+		
+		//复制带宽，
+		Graph _graph_1 = new Graph(max_node_num);
+		_graph_1.matbw= arraysCopy(dag_bw);
+		_graph_1.matcost= arraysCopy(dag_cost);
+		Graph _graph_2 = new Graph(max_node_num);
+		_graph_2.reInit(_graph_1);
+		//String[] result = Dijsktra1(matcost_1, 4);
 
-		for (int i = 0; i < max_node_num; i++){
-			System.out.println("从" + 0 + "出发到" + i + "的最短路径为：" + result[i]);
+		//for (int i = 0; i < max_node_num; i++){
+		//	System.out.println("从" + 0 + "出发到" + i + "的最短路径为：" + result[i]);
 			/*int[] temp = converPathtoInt(result[i]);
 			for (int j = 0; j < temp.length; j++) {
 				System.out.print(" "+temp[j]);
 			}*/
-			System.out.print("\n");
-		}
+		//	System.out.print("\n");
+		//}
 		//计算下总需求带宽
 		
 		int sumneed =0;
@@ -342,42 +298,112 @@ public class Deploy
 		}
 		System.out.println("总需求 = "+sumneed);
 		
+		//printMatrix(dag_bw, "原图:");
+		//printMatrix(matbw_1, "test1:");
+		
+		//String[] result_1 = Dijsktra1(matcost_1, 4);
+		//int[] temp = converPathtoInt(result_1[30]);
+		//for (int j = 0; j < temp.length; j++) {
+	//		System.out.print(" "+temp[j]);
+	//	}
+	//	System.out.print("\n");
+		
+		//for (int i = 0; i < max_node_num; i++){
+		//	System.out.println("从" + 0 + "出发到" + i + "的最短路径为：" + result_1[i]);
+			/*int[] temp = converPathtoInt(result[i]);
+			for (int j = 0; j < temp.length; j++) {
+				System.out.print(" "+temp[j]);
+			}*/
+		//	System.out.print("\n");
+		//}
 		
 		
-		
-		
+	}
+	
+	/**
+	 * 拷贝数组二维
+	 * @param newmat
+	 * @return
+	 */
+	private static int[][] arraysCopy(int[][] newmat) {
+		int n = newmat.length;
+		int[][] result= new int[n][n];
+		for (int i = 0; i < n; i++) {
+			for (int j = 0; j < n; j++) {
+				result[i][j] = newmat[i][j];
+			}
+		}
+		return result;
 	}
 	
 
 	/**
-	 * 扣除带宽
+	 * 扣除带宽,输入bw矩阵，返回扣除的bw矩阵，如果bw降为0，将cost矩阵置为inf
 	 * @return
 	 */
-	private int[][] Deduction(int[] path,int[][] matbw) {
-		//计算最小带宽
-		for(;;){
-			
+	private Graph Deduction(int[] path,Graph _graph) {
+		//计算最小带宽 minbw
+		int node1,node2,bw;
+		int minbw=10000;//最小带宽
+		for(int i=0;i<path.length-1;i++){
+			node1 = path[i];
+			node2 = path[i+1];
+			bw = _graph.matbw[node1][node2];
+			if ( ( bw != INF_INT )&&( minbw > bw  )&&( bw > 0 ) ) {
+				minbw = bw;
+			}
 		}
-		
-		
+		int tempdw;
+		for(int i=0;i<path.length-1;i++){
+			node1 = path[i];
+			node2 = path[i+1];
+			bw = _graph.matbw[node1][node2];
+			if ( ( bw != INF_INT )&&( bw > 0 ) ) {
+				tempdw = bw - minbw;
+				if (tempdw<=0) {//结果小于等于0
+					tempdw = 0;
+					//修改cost矩阵，置为不可达
+					_graph.matcost[node1][node2] = INF_INT; 
+				}
+				_graph.matbw[node1][node2] = tempdw;//更新bw
+			}
+		}
+		return _graph;
 	}
 	
-	
-	
-	
-	
+
 	/**
 	 * 生成
 	 * @param startid 起始点，为服务器节点
 	 * @param endid  终止点，为消费者节点
-	 * @param matcost  cost花费矩阵，当值为-1，表示流量为空。
-	 * @param matbw 带宽矩阵，为0表示无带宽。
+	 * @param matcost  cost花费矩阵，当值为-1，表示流量为空。matbw 带宽矩阵，为0表示无带宽。
+	 * @param 
 	 */
-	private void GetFlows(int startid , int endid,int[][] matcost,int[][] matbw) {
+	private void GetFlows(int startid , int endid,Graph _graph) {
 		//Dijsktra1(matcost,startid); 
 		
+		//for (int i = 0; i < max_node_num; i++){
+				//	System.out.println("从" + 0 + "出发到" + i + "的最短路径为：" + result_1[i]);
+					/*int[] temp = converPathtoInt(result[i]);
+					for (int j = 0; j < temp.length; j++) {
+						System.out.print(" "+temp[j]);
+					}*/
+				//	System.out.print("\n");
+				//}
+				
+		/*
+		 * 
+		 * 
+		 * 
+		 */
+		Graph _graph_1 = new Graph(_graph.lengths);
+		_graph_1.reInit(_graph);
 		
-		
+		for(;;){
+			Dijsktra1(_graph_1.matcost,1);
+			
+			
+		}
 		
 		
 		
