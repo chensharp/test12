@@ -1,6 +1,6 @@
 package com.chensharp.tools;
 
-
+import java.util.HashMap;
 
 /**
  * 图
@@ -11,6 +11,8 @@ public class Graph {
 	public int[][] matcost;
 	public int[][] matbw;
 	public int lengths;
+	
+	public HashMap<String, String> consumerBw = new HashMap<String,String>(); //存储key=nodeid , value=bwneed;
 	
 	public Graph(int length) {
 		// TODO Auto-generated constructor stub
@@ -29,6 +31,19 @@ public class Graph {
 		lengths = matcost.length;
 	}
 	
+	/**
+	 * 初始化consumerBw
+	 * @param _graph
+	 */
+	public void InitConsumer(DataOpt _dDataOpt) {
+		int n = _dDataOpt.consumeNodes.size();
+		int nodeid,bw;
+		for (int i = 0; i < n; i++) {
+			nodeid = _dDataOpt.consumeNodes.get(i).getLinking_node();
+			bw = _dDataOpt.consumeNodes.get(i).getBandwidth_cost();
+			consumerBw.put(String.valueOf(nodeid), String.valueOf(bw));
+		}
+	}
 	
 	
 	/**

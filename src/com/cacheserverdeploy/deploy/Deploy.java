@@ -29,12 +29,14 @@ public class Deploy
 {
 	//数据定义区，跨函数数据调用
 	final static int MAX_NODE_LENGTH=1000; //最大节点数目 
-	final static int INF_INT= -1; //无穷大 
+	final static int INF_INT= Integer.MAX_VALUE; //无穷大 
 	public static int max_node_num = 0;
 	
     public static DataOpt _dataopt = new DataOpt(); //原始数据
-	public static int [][] dag_cost ;//网络花费
-	public static int [][] dag_bw ;//网络带宽
+	//public static int [][] dag_cost ;//网络花费
+	//public static int [][] dag_bw ;//网络带宽
+	
+	public static Graph dag_graph;//图
 	
 	public static SolutionList _solutionlist = new SolutionList();//解的集合
 	
@@ -120,27 +122,28 @@ public class Deploy
 		System.out.println("max_node_num = "+max_node_num);
 		
 		//初始化网络矩阵
-		dag_cost = new int [max_node_num][max_node_num];//网络花费
-		dag_bw = new int [max_node_num][max_node_num];//网络带宽
+		//dag_cost = new int [max_node_num][max_node_num];//网络花费
+		//dag_bw = new int [max_node_num][max_node_num];//网络带宽
+		dag_graph = new Graph(max_node_num);
 		
 		//init 0 dag
 		for (int i = 0; i < max_node_num; i++) {
 			for (int j = 0; j < max_node_num; j++) {
-				dag_cost[i][j]=INF_INT;
-				dag_bw[i][j]=0;//带宽初始化为0
+				dag_graph.matcost [i][j]=INF_INT;
+				dag_graph.matbw [i][j]=0;//带宽初始化为0
 			}
 		}
 		
 		//initdagcost,initdagbw
 		for (int i = 0; i < _dataopt.getLink_num(); i++) {
-			dag_cost[_dataopt.links.get(i).getStart_node()][_dataopt.links.get(i).getEnd_node()]= 
+			dag_graph.matcost[_dataopt.links.get(i).getStart_node()][_dataopt.links.get(i).getEnd_node()]= 
 					_dataopt.links.get(i).getRent_cost();
-			dag_cost[_dataopt.links.get(i).getEnd_node()][_dataopt.links.get(i).getStart_node()]= 
+			dag_graph.matcost[_dataopt.links.get(i).getEnd_node()][_dataopt.links.get(i).getStart_node()]= 
 					 _dataopt.links.get(i).getRent_cost();
 			
-			dag_bw[_dataopt.links.get(i).getStart_node()][_dataopt.links.get(i).getEnd_node()]= 
+			dag_graph.matbw[_dataopt.links.get(i).getStart_node()][_dataopt.links.get(i).getEnd_node()]= 
 					 _dataopt.links.get(i).getBandwidth();
-			dag_bw[_dataopt.links.get(i).getEnd_node()][_dataopt.links.get(i).getStart_node()]= 
+			dag_graph.matbw[_dataopt.links.get(i).getEnd_node()][_dataopt.links.get(i).getStart_node()]= 
 					 _dataopt.links.get(i).getBandwidth();
 		}
 		
@@ -167,8 +170,11 @@ public class Deploy
 			System.out.print("\n");
 		}
 	}
-	
-	
+
+	public static String getDIJPath(int[][] weight,int start,int end) {
+		String[] str = Dijsktra1(weight, start);
+		return str[end];
+	}
 	
     /**
      * 
@@ -226,6 +232,8 @@ public class Deploy
 		}
 		return path;
 	}
+	
+	
 	/**
 	 * 把Dijsktra1函数的返回值做处理，转为int[]
 	 * @param _s
@@ -255,49 +263,58 @@ public class Deploy
 			sumbwIn = 0;
 			degreeOut = 0;
 			for (int j = 0; j < max_node_num; j++) {
-				if (dag_bw[i][j]!=0) {
-					sumbwOut += dag_bw[i][j];
+				if (dag_graph.matbw[i][j]!=0) {
+					sumbwOut += dag_graph.matbw[i][j];
 					degreeOut ++;
 				}
 			}
 			degreeIn = 0;
 			for (int j = 0; j < max_node_num; j++) {
-				if (dag_bw[j][i]!=0) {
-					sumbwIn += dag_bw[j][i];
+				if (dag_graph.matbw[j][i]!=0) {
+					sumbwIn += dag_graph.matbw[j][i];
 					degreeIn ++;
 				}
 			}
-			
-			
 			System.out.println(i+" node: sumbwOut= "+sumbwOut+" degreeOut= "+degreeOut+ "sumbwIn= "+sumbwIn+" degreeIn= "+degreeIn );
 		}
-		
-		
-		
+
 		//复制带宽，
 		Graph _graph_1 = new Graph(max_node_num);
-		_graph_1.matbw= arraysCopy(dag_bw);
-		_graph_1.matcost= arraysCopy(dag_cost);
-		Graph _graph_2 = new Graph(max_node_num);
-		_graph_2.reInit(_graph_1);
-		//String[] result = Dijsktra1(matcost_1, 4);
+		_graph_1.reInit(dag_graph);
+		_graph_1.InitConsumer(_dataopt);
+		
+		//GetFlows(4,43,_graph_1);
+		//printMatrix(_graph_1.matbw, "matbw");
+		printMatrix(_graph_1.matcost, "matcost");
+		
+		
+		//_graph_1.matbw= arraysCopy(dag_bw);
+		//_graph_1.matcost= arraysCopy(dag_cost);
+		//Graph _graph_2 = new Graph(max_node_num);
+		//_graph_2.reInit(_graph_1);
+		
+		//System.out.println(_graph_1.consumerBw.get("34"));
+		
+		
+		//_graph_2.consumerBw.put(, value);
+		String[] result = Dijsktra1(_graph_1.matcost, 4);
 
-		//for (int i = 0; i < max_node_num; i++){
-		//	System.out.println("从" + 0 + "出发到" + i + "的最短路径为：" + result[i]);
+		for (int i = 0; i < max_node_num; i++){
+			System.out.println("从" + 0 + "出发到" + i + "的最短路径为：" + result[i]);
 			/*int[] temp = converPathtoInt(result[i]);
 			for (int j = 0; j < temp.length; j++) {
 				System.out.print(" "+temp[j]);
 			}*/
-		//	System.out.print("\n");
-		//}
+			System.out.print("\n");
+		}
 		//计算下总需求带宽
-		
+		/*
 		int sumneed =0;
 		for (int i = 0; i < _dataopt.consumeNodes.size(); i++) {
 			sumneed += _dataopt.consumeNodes.get(i).getBandwidth_cost();
 		}
 		System.out.println("总需求 = "+sumneed);
-		
+		*/
 		//printMatrix(dag_bw, "原图:");
 		//printMatrix(matbw_1, "test1:");
 		
@@ -317,6 +334,8 @@ public class Deploy
 		//	System.out.print("\n");
 		//}
 		
+		//String res = getDIJPath(_graph_2.matcost, 4,44);
+		//System.out.println(res);
 		
 	}
 	
@@ -335,24 +354,43 @@ public class Deploy
 		}
 		return result;
 	}
-	
 
+	/**
+	 * 得到路径上最小的带宽
+	 * @param path
+	 * @param _graph
+	 * @return
+	 */
+	private static int GetminBw(int[] path, Graph _graph) {
+		// 计算最小带宽 minbw
+		int node1, node2, bw;
+		int minbw = 10000;// 最小带宽
+		
+		//printMatrix(_graph.matbw, "matbw");
+		//printMatrix(_graph.matcost, "matcost");
+		
+		for (int i = 0; i < path.length - 1; i++) {
+			node1 = path[i];
+			node2 = path[i + 1];
+			bw = _graph.matbw[node1][node2];
+			System.out.println("bw="+bw+" node1="+node1 +" node2="+node2 );
+			if ((bw != INF_INT) && (minbw > bw) && (bw > 0)) {
+				minbw = bw;
+			}
+		}
+		return minbw;
+	}
+	
+	
+	
 	/**
 	 * 扣除带宽,输入bw矩阵，返回扣除的bw矩阵，如果bw降为0，将cost矩阵置为inf
 	 * @return
 	 */
-	private Graph Deduction(int[] path,Graph _graph) {
+	private static Graph Deduction(int[] path,Graph _graph) {
 		//计算最小带宽 minbw
 		int node1,node2,bw;
-		int minbw=10000;//最小带宽
-		for(int i=0;i<path.length-1;i++){
-			node1 = path[i];
-			node2 = path[i+1];
-			bw = _graph.matbw[node1][node2];
-			if ( ( bw != INF_INT )&&( minbw > bw  )&&( bw > 0 ) ) {
-				minbw = bw;
-			}
-		}
+		int minbw= GetminBw(path, _graph);//最小带宽
 		int tempdw;
 		for(int i=0;i<path.length-1;i++){
 			node1 = path[i];
@@ -379,35 +417,48 @@ public class Deploy
 	 * @param matcost  cost花费矩阵，当值为-1，表示流量为空。matbw 带宽矩阵，为0表示无带宽。
 	 * @param 
 	 */
-	private void GetFlows(int startid , int endid,Graph _graph) {
-		//Dijsktra1(matcost,startid); 
-		
-		//for (int i = 0; i < max_node_num; i++){
-				//	System.out.println("从" + 0 + "出发到" + i + "的最短路径为：" + result_1[i]);
-					/*int[] temp = converPathtoInt(result[i]);
-					for (int j = 0; j < temp.length; j++) {
-						System.out.print(" "+temp[j]);
-					}*/
-				//	System.out.print("\n");
-				//}
-				
+	private static void GetFlows(int startid , int endid,Graph _graph) {
 		/*
 		 * 
-		 * 
+		 * 缺少如何保存输出的路径解的代码部分，，
 		 * 
 		 */
-		Graph _graph_1 = new Graph(_graph.lengths);
-		_graph_1.reInit(_graph);
+		ArrayList<String> flowStr = new ArrayList<String>();//保存路径
 		
+		Graph _graph_1 = new Graph(_graph.lengths);
+		_graph_1.reInit(_graph);//新图数据
+		_graph_1.InitConsumer(_dataopt);
+		
+		String resultStr= new String();
+		int[] resultInt;
+		int minbw,conBw;
 		for(;;){
-			Dijsktra1(_graph_1.matcost,1);
 			
+			resultStr = getDIJPath(_graph_1.matcost, startid, endid);//得到路径，
+			flowStr.add(resultStr);
+			System.out.println(resultStr);//输出
+			
+			resultInt = converPathtoInt(resultStr);
+			minbw = GetminBw(resultInt, _graph_1);//得到提供的带宽
+			
+			System.out.println("提供带宽："+minbw);
+			//获得消费者带宽需求
+			conBw = Integer.parseInt( _graph.consumerBw.get(String.valueOf( endid  ) )  );
+			if (conBw >= minbw) {//如果需求 大于 提供
+				//更新消费需求，剪去提供的。
+				
+				Deduction(resultInt, _graph_1);//扣减带宽
+				
+			}else {//需求小于提供，满足，则停止继续产生新路径。
+				//更新消费需求，remove掉，
+				
+				Deduction(resultInt, _graph_1);//扣减带宽
+				break;
+			}
+
 			
 		}
-		
-		
-		
-		
+
 	}
 	
 	
