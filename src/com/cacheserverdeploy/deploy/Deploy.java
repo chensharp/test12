@@ -29,7 +29,7 @@ public class Deploy
 {
 	//数据定义区，跨函数数据调用
 	final static int MAX_NODE_LENGTH=1000; //最大节点数目 
-	final static int INF_INT= Integer.MAX_VALUE; //无穷大 
+	final static int INF_INT= 10000; //无穷大 
 	public static int max_node_num = 0;
 	
     public static DataOpt _dataopt = new DataOpt(); //原始数据
@@ -283,9 +283,9 @@ public class Deploy
 		_graph_1.reInit(dag_graph);
 		_graph_1.InitConsumer(_dataopt);
 		
-		//GetFlows(4,43,_graph_1);
+		GetFlows(4,43,_graph_1);
 		//printMatrix(_graph_1.matbw, "matbw");
-		printMatrix(_graph_1.matcost, "matcost");
+		//printMatrix(_graph_1.matcost, "matcost");
 		
 		
 		//_graph_1.matbw= arraysCopy(dag_bw);
@@ -297,16 +297,16 @@ public class Deploy
 		
 		
 		//_graph_2.consumerBw.put(, value);
-		String[] result = Dijsktra1(_graph_1.matcost, 4);
+	//	String[] result = Dijsktra1(_graph_1.matcost, 4);
 
-		for (int i = 0; i < max_node_num; i++){
-			System.out.println("从" + 0 + "出发到" + i + "的最短路径为：" + result[i]);
+		//for (int i = 0; i < max_node_num; i++){
+	//		System.out.println("从" + 0 + "出发到" + i + "的最短路径为：" + result[i]);
 			/*int[] temp = converPathtoInt(result[i]);
 			for (int j = 0; j < temp.length; j++) {
 				System.out.print(" "+temp[j]);
 			}*/
-			System.out.print("\n");
-		}
+		//	System.out.print("\n");
+		//}
 		//计算下总需求带宽
 		/*
 		int sumneed =0;
