@@ -3,6 +3,7 @@ package com.cacheserverdeploy.deploy;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
 
 import org.omg.CORBA.Current;
@@ -150,8 +151,8 @@ public class Deploy
 		}
 		
 		
-		//printMatrix(dag_cost, "dagcost");
-		//printMatrix(dag_bw, "dagbw");
+		//printMatrix(dag_graph.matcost, "dagcost");
+		//printMatrix(dag_graph.matbw, "dagbw");
 /**/
 	}
 	
@@ -174,7 +175,9 @@ public class Deploy
 	}
 
 	public static String getDIJPath(int[][] weight,int start,int end) {
-		String[] str = Dijsktra1(weight, start);
+		int[][] temp = arraysCopy(weight);//复制下数组
+		
+		String[] str = Dijsktra1(temp, start);
 		return str[end];
 	}
 	
@@ -279,13 +282,18 @@ public class Deploy
 			}
 			System.out.println(i+" node: sumbwOut= "+sumbwOut+" degreeOut= "+degreeOut+ "sumbwIn= "+sumbwIn+" degreeIn= "+degreeIn );
 		}
-
-		//复制带宽，
-		Graph _graph_1 = new Graph(max_node_num);
-		_graph_1.reInit(dag_graph);
-		_graph_1.InitConsumer(_dataopt);
 		
-		//GetFlows(4,38,_graph_1);
+		// 计算下总需求带宽
+		int sumneed = 0;
+		for (int i = 0; i < _dataopt.consumeNodes.size(); i++) {
+			sumneed += _dataopt.consumeNodes.get(i).getBandwidth_cost();
+		}
+		System.out.println("总需求 = " + sumneed);
+		//计算最差部署成本：
+		//最差部署成本应该是在每个消费节点处连一个服务器，计算它的服务器成本，没有带宽成本
+		int badcost = _dataopt.getDeploy_cost() * _dataopt.getConsumeNode_num();
+		System.out.println("最差部署成本="+badcost);
+		
 		//printMatrix(_graph_1.matbw, "matbw");
 		//printMatrix(_graph_1.matcost, "matcost");
 		
@@ -309,14 +317,7 @@ public class Deploy
 			}*/
 		//	System.out.print("\n");
 		//}
-		//计算下总需求带宽
-		/*
-		int sumneed =0;
-		for (int i = 0; i < _dataopt.consumeNodes.size(); i++) {
-			sumneed += _dataopt.consumeNodes.get(i).getBandwidth_cost();
-		}
-		System.out.println("总需求 = "+sumneed);
-		*/
+		
 		//printMatrix(dag_bw, "原图:");
 		//printMatrix(matbw_1, "test1:");
 		
@@ -365,7 +366,7 @@ public class Deploy
 	 */
 	private static int GetminBw(int[] path, Graph _graph) {
 		// 计算最小带宽 minbw
-		int node1, node2, bw;
+		int node1, node2, bw,cost;
 		int minbw = 10000;// 最小带宽
 		
 		//printMatrix(_graph.matbw, "matbw");
@@ -375,8 +376,9 @@ public class Deploy
 			node1 = path[i];
 			node2 = path[i + 1];
 			bw = _graph.matbw[node1][node2];
-			//System.out.println("bw="+bw+" node1="+node1 +" node2="+node2 );
-			if ((bw != INF_INT) && (minbw > bw) && (bw > 0)) {
+			cost = _graph.matcost[node1][node2];
+			//System.out.println("bw="+bw+" cost="+cost+" node1="+node1 +" node2="+node2 );
+			if ((bw != INF_INT) && (minbw > bw) && (bw > 0)&&(cost<INF_INT)  ) {
 				minbw = bw;
 			}
 		}
@@ -405,19 +407,43 @@ public class Deploy
 					//修改cost矩阵，置为不可达
 					_graph.matcost[node1][node2] = INF_INT;
 				}
-				System.out.println("修改的新bw： "+tempdw+" node1="+node1+" node2="+node2+" bw="+bw);//输出
+				System.out.println("deduction 修改的新bw： "+tempdw+" node1="+node1+" node2="+node2+" bw="+bw);//输出
 				_graph.matbw[node1][node2] = tempdw;//更新bw
 			}
 		}
 		return _graph;
 	}
 	
-
+	/**
+	 * 计算路径的cost
+	 * @param Spath
+	 * @return
+	 */
+	private static int calculaCost(String Spath) {
+		//
+		int[] path = converPathtoInt(Spath);
+		int minbw = GetminBw(path, dag_graph);//传原图进去，
+		
+		System.out.println("minbw = "+minbw);
+		
+		int node1,node2,cost;
+		int sum = 0;
+		for(int i=0;i<path.length-1;i++){
+			node1 = path[i];
+			node2 = path[i+1];
+			cost = dag_graph.matcost[node1][node2];
+			sum +=( cost * minbw ); 
+		}
+		System.out.println("sum = "+sum);
+		return sum;
+		
+	}
+	
 	/**
 	 * 生成
-	 * @param startid 起始点，为服务器节点
-	 * @param endid  终止点，为消费者节点
-	 * @param matcost  cost花费矩阵，当值为-1，表示流量为空。matbw 带宽矩阵，为0表示无带宽。
+	 * @param startid[] 起始点，为服务器节点
+	 * @param endid[]  终止点，为消费者节点
+	 * @param  graph matcost  cost花费矩阵，当值为intinf，表示此路不通。matbw 带宽矩阵，为0表示无带宽。
 	 * @param 
 	 */
 	private static void GetFlows(int[] startid, int[] endid,Graph _graph) {
@@ -428,64 +454,94 @@ public class Deploy
 		 */
 		ArrayList<String> flowStr = new ArrayList<String>();//保存路径
 		
-		Graph _graph_1 = new Graph(_graph.lengths);
+		Graph _graph_1 = new Graph(_graph.lengths);//新生成图数据
 		_graph_1.reInit(_graph);//新图数据
 		_graph_1.InitConsumer(_dataopt);
 		
-		String resultStr= new String();
+		String resultStr= new String();//保存生成的扩展路径
 		int[] resultInt;
 		int minbw,conBw;
 		
-		int starti=0;
+		int starti=0;//指向当前的服务序列和消费序列
 		int endi=0;
-		for(;;){
+		for(int i=0; ;i++){//循环开始
 			
-			resultStr = getDIJPath(_graph_1.matcost, startid[starti], endid[endi]);//得到路径，
+			resultStr = getDIJPath(_graph_1.matcost, startid[starti],endid[endi]);//得到路径，
 			
-			System.out.println("（循环开始） 产生路径："+resultStr);//输出
+			System.out.println("循环"+i+"开始   产生路径："+resultStr);//输出
 			
 			resultInt = converPathtoInt(resultStr);
 			minbw = GetminBw(resultInt, _graph_1);//得到提供的带宽
-			System.out.println("路径提供带宽："+minbw);
+			System.out.println("循环"+i+" 路径提供带宽："+minbw);
 			
 			if(minbw >=10000){//如果路径产生失败，说明没有足够的路径到达该终端，
 				//说明该起点到该终点不能产生路径，则退出并更换起点，终点不变。
 				starti++;//更换下一个startnode
 				if (starti >= startid.length) {//使用完了节点，准备输出无解。
-					
+					System.out.println("循环"+i+" 服务节点序列用尽，输出无解");
+					break;
 				}
 				
-				continue;
+				continue;//跳过下面的代码，重新开始循环。
 			}else {//正常路径，
-				
+				//nothing todo
 				
 				
 			}
 			
 			
 			//获得消费者带宽需求
-			conBw = Integer.parseInt( _graph.consumerBw.get(String.valueOf( endid[endi]  ) )  );
-			System.out.println("消费者带宽需求："+conBw);
+			if (_graph_1.consumerBw.get(String.valueOf( endid[endi]  ) )==null  ) {
+				System.out.println("循环"+i+" 需求序列有误，输出无解");
+				break;
+			}
+			conBw = Integer.parseInt(_graph_1.consumerBw.get(String.valueOf( endid[endi]  ) )   );
+			System.out.println("循环"+i+" 消费者带宽需求："+conBw);
 			
-			int Current ;
-			if (conBw >= minbw) {//如果需求 大于 提供
+			int Current ;//定义更新后的带宽值
+			if (conBw >= minbw) {//如果需求 大于 = 提供
 				//更新消费需求，剪去提供的。
+				System.out.println("循环"+i+" 消费者"+endid[endi]+"带宽需求："+conBw+"没有被满足，");
+				
 				Current = conBw - minbw;//计算出
 				_graph_1.UpdateConsumer(endid[endi],Current);//更新
 				
-			}else {//需求小于提供，满足，则停止继续产生。
+			}else {//需求小于提供，满足，则更换下一个需求点，。完成需求
 				//更新消费需求，remove掉，
 				_graph_1.consumerBw.remove(String.valueOf(endid[endi] ));
-			
-				//break;
+				System.out.println("循环"+i+" 消费者"+endid[endi]+"带宽需求："+conBw+"已经被满足，");
 				//更换下一个endid，
 				endi++;
+				if (endi >= endid.length) {//使用完了节点，准备输出无解。
+					System.out.println("循环"+i+" 消费节点序列用尽，输出完成");
+					System.out.println("循环"+i+"开始   有效路径："+resultStr);//输出
+					flowStr.add(resultStr);
+					
+					break;
+				}
+				
 			}
 			Deduction(resultInt, _graph_1);//扣减带宽
 			//保存路径，这里的保存路径才是有效路径，
+			System.out.println("循环"+i+"开始   有效路径!!!!!!!："+resultStr);//输出
+			System.out.println("循环"+i+"-------------------------------------------------------------");
 			flowStr.add(resultStr);
 		}
-
+		
+		 Iterator<String> it1 = flowStr.iterator();
+		 int i=0;
+		 int sumcost = 0;
+		 String tempstr = new String();
+	     while(it1.hasNext()){
+	    	 i++;
+	    	 tempstr =  it1.next();
+	    	 System.out.println(" 第"+i+"解："+ tempstr);
+	    	 sumcost += ( calculaCost(tempstr ) );
+	    	 
+	     }
+	     
+	     System.out.println("路径总cost = "+ sumcost);
+	     
 	}
 	
 	
@@ -508,7 +564,7 @@ public class Deploy
     	//GeneticAlgorithmTest test = new GeneticAlgorithmTest();  
         //test.caculte();  
     	GetNodeInfo();
-    	//searchDeployed();
+    	searchDeployed();
     	
     	
 		return new String[] { "17", "\r\n", "0 8 0 20" };
@@ -535,6 +591,20 @@ public class Deploy
 		 *
 		 *
 		 */
+    	
+		//复制带宽，
+		Graph _graph_1 = new Graph(max_node_num);
+		_graph_1.reInit(dag_graph);
+		_graph_1.InitConsumer(_dataopt);
+		
+		int[] startid1 = {4,3,2,1,0,47,13,14,11,39,18,19,23,36,21,46,45,48,13,14,16};
+		int[] endid1 = {43,44,22,7,15,13,38,34,37};//37
+		//int[] endid1 = {15,37,13,22,43,7,44,34,38};
+		
+		
+		GetFlows(startid1,endid1,_graph_1);
+    	
+    	
     	
 	}
 
