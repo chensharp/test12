@@ -5,6 +5,8 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.omg.CORBA.Current;
+
 import com.chensharp.genetic.GeneticAlgorithmTest;
 import com.chensharp.tools.*;
 
@@ -29,7 +31,7 @@ public class Deploy
 {
 	//数据定义区，跨函数数据调用
 	final static int MAX_NODE_LENGTH=1000; //最大节点数目 
-	final static int INF_INT= 10000; //无穷大 
+	final static int INF_INT= 100000; //无穷大 
 	public static int max_node_num = 0;
 	
     public static DataOpt _dataopt = new DataOpt(); //原始数据
@@ -283,7 +285,7 @@ public class Deploy
 		_graph_1.reInit(dag_graph);
 		_graph_1.InitConsumer(_dataopt);
 		
-		GetFlows(4,43,_graph_1);
+		//GetFlows(4,38,_graph_1);
 		//printMatrix(_graph_1.matbw, "matbw");
 		//printMatrix(_graph_1.matcost, "matcost");
 		
@@ -356,7 +358,7 @@ public class Deploy
 	}
 
 	/**
-	 * 得到路径上最小的带宽
+	 * 得到路径上最小的带宽,如果返回10000，则说明路径不通
 	 * @param path
 	 * @param _graph
 	 * @return
@@ -373,7 +375,7 @@ public class Deploy
 			node1 = path[i];
 			node2 = path[i + 1];
 			bw = _graph.matbw[node1][node2];
-			System.out.println("bw="+bw+" node1="+node1 +" node2="+node2 );
+			//System.out.println("bw="+bw+" node1="+node1 +" node2="+node2 );
 			if ((bw != INF_INT) && (minbw > bw) && (bw > 0)) {
 				minbw = bw;
 			}
@@ -401,8 +403,9 @@ public class Deploy
 				if (tempdw<=0) {//结果小于等于0
 					tempdw = 0;
 					//修改cost矩阵，置为不可达
-					_graph.matcost[node1][node2] = INF_INT; 
+					_graph.matcost[node1][node2] = INF_INT;
 				}
+				System.out.println("修改的新bw： "+tempdw+" node1="+node1+" node2="+node2+" bw="+bw);//输出
 				_graph.matbw[node1][node2] = tempdw;//更新bw
 			}
 		}
@@ -417,7 +420,7 @@ public class Deploy
 	 * @param matcost  cost花费矩阵，当值为-1，表示流量为空。matbw 带宽矩阵，为0表示无带宽。
 	 * @param 
 	 */
-	private static void GetFlows(int startid , int endid,Graph _graph) {
+	private static void GetFlows(int[] startid, int[] endid,Graph _graph) {
 		/*
 		 * 
 		 * 缺少如何保存输出的路径解的代码部分，，
@@ -432,31 +435,55 @@ public class Deploy
 		String resultStr= new String();
 		int[] resultInt;
 		int minbw,conBw;
+		
+		int starti=0;
+		int endi=0;
 		for(;;){
 			
-			resultStr = getDIJPath(_graph_1.matcost, startid, endid);//得到路径，
-			flowStr.add(resultStr);
-			System.out.println(resultStr);//输出
+			resultStr = getDIJPath(_graph_1.matcost, startid[starti], endid[endi]);//得到路径，
+			
+			System.out.println("（循环开始） 产生路径："+resultStr);//输出
 			
 			resultInt = converPathtoInt(resultStr);
 			minbw = GetminBw(resultInt, _graph_1);//得到提供的带宽
+			System.out.println("路径提供带宽："+minbw);
 			
-			System.out.println("提供带宽："+minbw);
+			if(minbw >=10000){//如果路径产生失败，说明没有足够的路径到达该终端，
+				//说明该起点到该终点不能产生路径，则退出并更换起点，终点不变。
+				starti++;//更换下一个startnode
+				if (starti >= startid.length) {//使用完了节点，准备输出无解。
+					
+				}
+				
+				continue;
+			}else {//正常路径，
+				
+				
+				
+			}
+			
+			
 			//获得消费者带宽需求
-			conBw = Integer.parseInt( _graph.consumerBw.get(String.valueOf( endid  ) )  );
+			conBw = Integer.parseInt( _graph.consumerBw.get(String.valueOf( endid[endi]  ) )  );
+			System.out.println("消费者带宽需求："+conBw);
+			
+			int Current ;
 			if (conBw >= minbw) {//如果需求 大于 提供
 				//更新消费需求，剪去提供的。
+				Current = conBw - minbw;//计算出
+				_graph_1.UpdateConsumer(endid[endi],Current);//更新
 				
-				Deduction(resultInt, _graph_1);//扣减带宽
-				
-			}else {//需求小于提供，满足，则停止继续产生新路径。
+			}else {//需求小于提供，满足，则停止继续产生。
 				//更新消费需求，remove掉，
-				
-				Deduction(resultInt, _graph_1);//扣减带宽
-				break;
-			}
-
+				_graph_1.consumerBw.remove(String.valueOf(endid[endi] ));
 			
+				//break;
+				//更换下一个endid，
+				endi++;
+			}
+			Deduction(resultInt, _graph_1);//扣减带宽
+			//保存路径，这里的保存路径才是有效路径，
+			flowStr.add(resultStr);
 		}
 
 	}

@@ -1,5 +1,6 @@
 package com.chensharp.tools;
 
+import java.awt.RenderingHints.Key;
 import java.util.HashMap;
 
 /**
@@ -43,6 +44,17 @@ public class Graph {
 			bw = _dDataOpt.consumeNodes.get(i).getBandwidth_cost();
 			consumerBw.put(String.valueOf(nodeid), String.valueOf(bw));
 		}
+	}
+	
+	/**
+	 * 更新需求
+	 * @param nodeid
+	 * @param needbw
+	 */
+	public void UpdateConsumer(int nodeid , int needbw) {
+		String str = String.valueOf(nodeid);
+		consumerBw.remove(str);//移除该nodeid
+		consumerBw.put(str, String.valueOf(needbw));
 	}
 	
 	
