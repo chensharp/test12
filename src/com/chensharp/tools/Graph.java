@@ -1,6 +1,5 @@
 package com.chensharp.tools;
 
-import java.awt.RenderingHints.Key;
 import java.util.HashMap;
 
 /**
@@ -13,7 +12,9 @@ public class Graph {
 	public int[][] matbw;
 	public int lengths;
 	
-	public HashMap<String, String> consumerBw = new HashMap<String,String>(); //存储key=nodeid , value=bwneed;
+	public HashMap<String, String> consumerBw = new HashMap<String,String>(); //存储key=linkednodeid , value=bwneed;
+	public HashMap<String, String> consumerID = new HashMap<String,String>(); //存储key=nodeid , value=Linkednodeid;
+	
 	
 	public Graph(int length) {
 		// TODO Auto-generated constructor stub
@@ -37,6 +38,8 @@ public class Graph {
 	 * @param _graph
 	 */
 	public void InitConsumer(DataOpt _dDataOpt) {
+		consumerBw.clear();//清空
+		
 		int n = _dDataOpt.consumeNodes.size();
 		int nodeid,bw;
 		for (int i = 0; i < n; i++) {
@@ -56,6 +59,21 @@ public class Graph {
 		consumerBw.remove(str);//移除该nodeid
 		consumerBw.put(str, String.valueOf(needbw));
 	}
+	
+	/**
+	 * 初始化consumerID,
+	 * @param _graph
+	 */
+	public void InitConsumerID(DataOpt _dDataOpt) {
+		consumerID.clear();
+		int n = _dDataOpt.consumeNodes.size();
+		int nodeid;
+		for (int i = 0; i < n; i++) {
+			nodeid = _dDataOpt.consumeNodes.get(i).getLinking_node();
+			consumerID.put(String.valueOf(nodeid), String.valueOf(i));
+		}
+	}
+	
 	
 	
 	/**

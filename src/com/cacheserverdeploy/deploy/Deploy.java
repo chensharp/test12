@@ -1,5 +1,6 @@
 package com.cacheserverdeploy.deploy;
 
+import java.awt.List;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -43,8 +44,12 @@ public class Deploy
 	
 	public static SolutionList _solutionlist = new SolutionList();//解的集合
 	
-	public static ArrayList<Flow> flows = new ArrayList<Flow>();
+	public static ArrayList<Flow> flows = new ArrayList<Flow>();//最终输出的结果，流
 	
+	/*
+	 * 根据服务器节点查找流的List
+	 */
+	public static HashMap<String, ArrayList<Flow> > opt_flows = new HashMap<String, ArrayList<Flow> >() ; 
 	
     /*初始化数据
      * 
@@ -150,11 +155,42 @@ public class Deploy
 					 _dataopt.links.get(i).getBandwidth();
 		}
 		
-		
+		//初始化consumerID
+		dag_graph.InitConsumerID(_dataopt);
+		dag_graph.InitConsumer(_dataopt);
 		//printMatrix(dag_graph.matcost, "dagcost");
 		//printMatrix(dag_graph.matbw, "dagbw");
 /**/
+
 	}
+	
+	
+	/**
+	 * 初始化opt flows 流
+	 */
+	public static void InitFlowsOpt() {
+		// init opt-flows
+		for (int i = 0; i < _dataopt.getConsumeNode_num(); i++) {
+			// 循环每个消费节点一个list，flows
+			ArrayList<Flow> flows_new = new ArrayList<Flow>();// 声明一个list
+
+			int Sid = _dataopt.consumeNodes.get(i).getLinking_node();
+			int consumerid = _dataopt.consumeNodes.get(i).getNode_id();
+
+			// 构造一个string序列
+			String stpath = String.valueOf(Sid) + "-" + String.valueOf(Sid);// 每个消费节点一个服务节点
+
+			Flow flow_ = new Flow(stpath);// 声明一个flow
+			flow_.consumer_id = consumerid;
+			flows_new.add(flow_);// 添加到list
+
+			opt_flows.put(String.valueOf(Sid), flows_new);// key是服务节点所在普通节点id，value是flow
+															// list
+		}
+
+	}
+	
+	
 	
 	/**
 	 * 打印矩阵
@@ -297,6 +333,10 @@ public class Deploy
 		//printMatrix(_graph_1.matbw, "matbw");
 		//printMatrix(_graph_1.matcost, "matcost");
 		
+		//计算floyed矩阵，得到节点两两相聚距离，
+		//TODO 
+		
+		
 		
 		//_graph_1.matbw= arraysCopy(dag_bw);
 		//_graph_1.matcost= arraysCopy(dag_cost);
@@ -359,6 +399,35 @@ public class Deploy
 	}
 
 	/**
+	 * 检查一个流是否路径合格，在当前图的条件下。
+	 * @param path
+	 * @param _graph
+	 * @return
+	 */
+	private static boolean CheckFlow(int[] path, Graph _graph) {
+		
+		int node1, node2, bw,cost;
+		//printMatrix(_graph.matbw, "matbw");
+		//printMatrix(_graph.matcost, "matcost");
+		
+		for (int i = 0; i < path.length - 1; i++) {
+			node1 = path[i];
+			node2 = path[i + 1];
+			bw = _graph.matbw[node1][node2];
+			cost = _graph.matcost[node1][node2];
+			//System.out.println("bw="+bw+" cost="+cost+" node1="+node1 +" node2="+node2 );
+			if ((bw >= INF_INT) ||  (bw <= 0) || (cost >= INF_INT)  ) {
+				//bw 》0 cost
+				return false;
+			}
+		}
+		return true;
+	}
+	
+	
+	
+	
+	/**
 	 * 得到路径上最小的带宽,如果返回10000，则说明路径不通
 	 * @param path
 	 * @param _graph
@@ -388,26 +457,31 @@ public class Deploy
 	
 	
 	/**
+	 * :::注意处理 ，服务节点直接连接在消费节点上的情况！！！！！！！！！！！！！！！！！！！！！！！！！！！
 	 * 扣除带宽,输入bw矩阵，返回扣除的bw矩阵，如果bw降为0，将cost矩阵置为inf
 	 * @return
 	 */
-	private static Graph Deduction(int[] path,Graph _graph) {
+	private static Graph Deduction(int[] path,Graph _graph, int debw) {
 		//计算最小带宽 minbw
 		int node1,node2,bw;
-		int minbw= GetminBw(path, _graph);//最小带宽
 		int tempdw;
+		
 		for(int i=0;i<path.length-1;i++){
 			node1 = path[i];
 			node2 = path[i+1];
+			//服务节点直连消费节点，
+			if (node1 == node2) {
+				break;//不修改图，因为没有带宽限制，
+			}
 			bw = _graph.matbw[node1][node2];
 			if ( ( bw != INF_INT )&&( bw > 0 ) ) {
-				tempdw = bw - minbw;
+				tempdw = bw - debw;
 				if (tempdw<=0) {//结果小于等于0
 					tempdw = 0;
 					//修改cost矩阵，置为不可达
 					_graph.matcost[node1][node2] = INF_INT;
 				}
-				System.out.println("deduction 修改的新bw： "+tempdw+" node1="+node1+" node2="+node2+" bw="+bw);//输出
+				//System.out.println("deduction 修改的新bw： "+tempdw+" node1="+node1+" node2="+node2+" bw="+bw);//输出
 				_graph.matbw[node1][node2] = tempdw;//更新bw
 			}
 		}
@@ -438,6 +512,123 @@ public class Deploy
 		return sum;
 		
 	}
+	
+	/**
+	 * 减去图中的一个Server，同时删除其相关的流，并在地图上恢复带宽，重新开始寻路操作，
+	 * @param 
+	 * @return
+	 */
+	private static int Simplify(int ServerID,Graph _graph) {
+		//
+		int sum=0;
+		return sum;
+		
+		
+		
+	}
+	
+	
+	/**
+	 * 该函数是尽可能产生一组flow返回，如果
+	 * 在S和consumer之间生成一组路径流，并扣除地图上的带宽和cost，，
+	 * @param 
+	 * @return
+	 */
+	private static ArrayList<Flow> SearchRoad(int ServerID,int CostumerLinkedID, Graph _graph_1) {
+		//
+		ArrayList<Flow> _flowlist = new ArrayList<Flow>();//保存路径
+		
+		//Graph _graph_1 = new Graph(_graph.lengths);//新生成图数据
+		//_graph_1.reInit(_graph);//新图数据
+		//_graph_1.InitConsumer(_dataopt);
+		
+		String resultStr= new String();//保存生成的扩展路径
+		int[] resultInt;
+		int minbw,conBw;
+		
+		int startid=ServerID;//指向当前的服务序列和消费序列
+		int endid=CostumerLinkedID;
+		
+		for(int i=0; ;i++){//循环开始
+			System.out.println("循环"+i+"-------------------------------------------------------------");
+			resultStr = getDIJPath(_graph_1.matcost, startid,endid);//得到路径，
+			resultInt = converPathtoInt(resultStr);//转换
+			minbw = GetminBw(resultInt, _graph_1);//得到提供的带宽
+			//System.out.println("循环"+i+" 路径提供带宽："+minbw);
+			//检查路径是否合法
+			if(minbw >=10000){//没有路径了，
+				if(i==0){//第一次就没有路了
+					return null;
+				}else{//不是第一次，前面有生成过路径
+					return _flowlist;
+				}
+			}else {//正常路径，
+				//nothing to do
+			}
+			//声明一个flow 
+			Flow _flow = new Flow(resultStr);//初始化路径
+			_flow.bandwidth = minbw;//写入带宽
+			_flow.calculaCost(dag_graph);//计算费用
+			_flow.consumer_id =Integer.parseInt( dag_graph.consumerID.get(String.valueOf(endid))  );
+			_flowlist.add(_flow);
+			
+			
+			//获得消费者带宽需求
+			if (_graph_1.consumerBw.get(String.valueOf( endid  ) )==null  ) {
+				System.out.println("循环"+i+" 需求序列有误，输出无解");
+				//break;
+			}
+			conBw = Integer.parseInt(_graph_1.consumerBw.get(String.valueOf( endid  ) )   );
+			//System.out.println("循环"+i+" 消费者带宽需求："+conBw);
+			
+			int Current= conBw - minbw;//定义更新后的带宽值,需求-提供的
+			if (Current >0 ) {// 不满足需求了，
+				//更新消费需求，剪去提供的。
+				//System.out.println("循环"+i+" 消费者"+endid+"带宽需求："+conBw+"没有被满足，");
+				_graph_1.UpdateConsumer(endid,Current);//更新消费节点的需求带宽
+				Deduction(resultInt, _graph_1,minbw);//扣减带宽,按照线路带宽扣除
+				//继续寻找路径
+				
+			}else {//需求已经满足。完成需求  <=0
+				_graph_1.consumerBw.remove(String.valueOf(endid ));//更新graph的消费需求，remove掉，
+				//System.out.println("循环"+i+" 消费者"+endid+"带宽需求："+conBw+"已经被满足，");
+				Deduction(resultInt, _graph_1,conBw);//扣减带宽,按照消费者带宽扣除，因为消费者的带宽需求小，不能去扣除大的
+				
+				return _flowlist;
+			}
+		}
+	//	return _flowlist;
+		
+	}
+	
+	
+	/**
+	 * 删除图中的一个Server，同时删除其相关的流，并在地图上恢复带宽，
+	 * @param 
+	 * @return
+	 */
+	private static int Delete(int ServerID,Graph _graph) {
+		//
+		int sum=0;
+		return sum;
+		
+		
+		
+	}
+	
+	/**
+	 * 添加图中的一个Server，同时寻路产生其相关的流，并在地图上扣除带宽，
+	 * @param 
+	 * @return
+	 */
+	private static int Add(int ServerID,Graph _graph) {
+		//
+		int sum=0;
+		return sum;
+		
+	}
+	
+	
 	
 	/**
 	 * 生成
@@ -521,7 +712,7 @@ public class Deploy
 				}
 				
 			}
-			Deduction(resultInt, _graph_1);//扣减带宽
+			//Deduction(resultInt, _graph_1);//扣减带宽
 			//保存路径，这里的保存路径才是有效路径，
 			System.out.println("循环"+i+"开始   有效路径!!!!!!!："+resultStr);//输出
 			System.out.println("循环"+i+"-------------------------------------------------------------");
@@ -561,6 +752,8 @@ public class Deploy
     	/**do your work here**/
     	_dataopt.print();
     	initDAG();
+    	InitFlowsOpt();
+    	
     	//GeneticAlgorithmTest test = new GeneticAlgorithmTest();  
         //test.caculte();  
     	GetNodeInfo();
@@ -596,15 +789,32 @@ public class Deploy
 		Graph _graph_1 = new Graph(max_node_num);
 		_graph_1.reInit(dag_graph);
 		_graph_1.InitConsumer(_dataopt);
+		_graph_1.InitConsumerID(_dataopt);
 		
-		int[] startid1 = {4,3,2,1,0,47,13,14,11,39,18,19,23,36,21,46,45,48,13,14,16};
-		int[] endid1 = {43,44,22,7,15,13,38,34,37};//37
+		//int[] startid1 = {4,3,2,1,0,47,13,14,11,39,18,19,23,36,21,46,45,48,13,14,16};
+		//int[] endid1 = {43,44,22,7,15,13,38,34,37};//37
 		//int[] endid1 = {15,37,13,22,43,7,44,34,38};
 		
 		
-		GetFlows(startid1,endid1,_graph_1);
+		//GetFlows(startid1,endid1,_graph_1);
     	
-    	
+		//private static ArrayList<Flow> SearchRoad(int ServerID,int CostumerLinkedID, Graph _graph_1) {
+		
+		ArrayList<Flow> result_flows = new ArrayList<Flow>();
+		result_flows = SearchRoad(13,34,_graph_1);
+		 
+		Iterator it1 = result_flows.iterator();
+		int i=0;
+		int sumcost = 0;
+	    while(it1.hasNext()){
+	    	i++;
+	    	Flow tempflow =  (Flow) it1.next();
+	    	tempflow.printInfo();
+	    	//System.out.println(" 第"+i+"解："+ tempstr);
+	    	//sumcost += ( calculaCost(tempstr ) );
+	    	 
+	    }
+		
     	
 	}
 
